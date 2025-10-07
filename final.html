@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoShield - Flood Damage Assessment</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            color: #e5e5e5;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(90deg, rgba(15, 32, 39, 0.95) 0%, rgba(44, 83, 100, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section h1 {
+            font-size: 26px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-section .tagline {
+            font-size: 11px;
+            color: #00c6ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            max-width: 500px;
+            margin: 0 40px;
+        }
+
+        .search-bar {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 198, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #e5e5e5;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-bar:focus {
+            border-color: #00c6ff;
+            background: rgba(0, 114, 255, 0.1);
+            box-shadow: 0 0 10px rgba(0, 198, 255, 0.3);
+        }
+
+        .search-bar::placeholder {
+            color: rgba(0, 198, 255, 0.5);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .status-badge {
+            background: linear-gradient(135deg, #f9d423, #ff4e50);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(255, 78, 80, 0.3);
+        }
+
+        .pulse {
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px #fff;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, rgba(0, 114, 255, 0.2), rgba(0, 198, 255, 0.2));
+            border: 1px solid rgba(0, 198, 255, 0.4);
+            color: #e5e5e5;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            border-color: transparent;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
+        }
+
+        .profile-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            border: 1px solid rgba(0, 198, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        .profile-icon:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.5);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 500px 1fr 480px;
+            height: calc(100vh - 67px);
+            gap: 0;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, rgba(15, 32, 39, 0.95) 0%, rgba(32, 58, 67, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(0, 198, 255, 0.2);
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 198, 255, 0.2);
+            background: linear-gradient(90deg, #0072ff, #00c6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .metric-card {
+            background: rgba(0, 114, 255, 0.1);
+            border: 1px solid rgba(0, 198, 255, 0.2);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .metric-card:hover {
+            background: rgba(0, 198, 255, 0.15);
+            border-color: rgba(0, 198, 255, 0.4);
+            transform: translateX(5px);
+            box-shadow: 0 4px 20px rgba(0, 198, 255, 0.2);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: #00c6ff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .metric-subtext {
+            font-size: 11px;
+            color: rgba(0, 198, 255, 0.7);
+        }
+
+        .alert-high { 
+            border-left: 3px solid #ff4e50;
+            background: linear-gradient(90deg, rgba(255, 78, 80, 0.1), transparent);
+        }
+        .alert-medium { 
+            border-left: 3px solid #f9d423;
+            background: linear-gradient(90deg, rgba(249, 212, 35, 0.1), transparent);
+        }
+        .alert-low { 
+            border-left: 3px solid #00c6ff;
+            background: linear-gradient(90deg, rgba(0, 198, 255, 0.1), transparent);
+        }
+
+        .chart-container {
+            background: rgba(0, 114, 255, 0.05);
+            border: 1px solid rgba(0, 198, 255, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .chart-title {
+            font-size: 12px;
+            background: linear-gradient(90deg, #0072ff, #00c6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            background: #0a0a0a;
+            position: relative;
+        }
+
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+            background: #0a0a0a;
+        }
+
+        .right-panel {
+            background: linear-gradient(180deg, rgba(15, 32, 39, 0.95) 0%, rgba(44, 83, 100, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(0, 198, 255, 0.2);
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 198, 255, 0.2);
+            background: linear-gradient(90deg, #f9d423, #ff4e50);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .damage-item {
+            background: rgba(249, 212, 35, 0.05);
+            border: 1px solid rgba(255, 78, 80, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .damage-item:hover {
+            background: rgba(255, 78, 80, 0.1);
+            border-color: rgba(255, 78, 80, 0.4);
+            transform: translateX(-5px);
+            box-shadow: 0 4px 20px rgba(255, 78, 80, 0.2);
+        }
+
+        .damage-item h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .damage-detail {
+            font-size: 12px;
+            color: rgba(249, 212, 35, 0.9);
+            margin-bottom: 6px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: rgba(0, 198, 255, 0.7);
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 198, 255, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            border: none;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 198, 255, 0.4);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .mini-card {
+            background: rgba(0, 114, 255, 0.1);
+            border: 1px solid rgba(0, 198, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+
+        .mini-card:hover {
+            background: rgba(0, 198, 255, 0.15);
+            border-color: rgba(0, 198, 255, 0.4);
+            transform: scale(1.02);
+        }
+
+        .mini-value {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .mini-label {
+            font-size: 10px;
+            color: rgba(0, 198, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-section">
+            <div>
+                <h1>⬢ GeoShield</h1>
+                <div class="tagline">Real-Time Flood Assessment</div>
+            </div>
+        </div>
+        
+        <div class="header-center">
+            <input type="text" class="search-bar" placeholder="Search city, region, or coordinates...">
+        </div>
+
+        <div class="header-right">
+            <div class="status-badge">
+                <div class="pulse"></div>
+                LIVE
+            </div>
+            <div class="auth-buttons">
+                <button class="btn-login">Login</button>
+                <button class="btn-login">Sign Up</button>
+                <div class="profile-icon">👤</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <h2>📊 Impact Dashboard</h2>
+            
+            <div class="dashboard-grid">
+                <div class="mini-card">
+                    <div class="mini-value">847</div>
+                    <div class="mini-label">km² Flooded</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-value">12.4k</div>
+                    <div class="mini-label">Affected Pop.</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-value">324</div>
+                    <div class="mini-label">ha Agriculture</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-value">18</div>
+                    <div class="mini-label">km Roads</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Flood Extent Trend (24h)</div>
+                <canvas id="trendChart" height="120"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Severity Distribution</div>
+                <canvas id="severityChart" height="120"></canvas>
+            </div>
+
+            <h2 style="margin-top: 25px;">📈 Key Metrics</h2>
+
+            <div class="metric-card alert-high">
+                <div class="metric-label">Critical Zones</div>
+                <div class="metric-value">3</div>
+                <div class="metric-subtext">Requiring immediate response</div>
+            </div>
+
+            <div class="metric-card alert-medium">
+                <div class="metric-label">Infrastructure Risk</div>
+                <div class="metric-value">HIGH</div>
+                <div class="metric-subtext">5 bridges, 2 highways affected</div>
+            </div>
+
+            <div class="metric-card alert-low">
+                <div class="metric-label">Last Updated</div>
+                <div class="metric-value" style="font-size: 13px;">06:42 UTC</div>
+                <div class="metric-subtext">Sentinel-1A SAR</div>
+            </div>
+
+            <button class="btn">📥 Export Report</button>
+            <button class="btn">🔄 Refresh Data</button>
+            <button class="btn">⚙️ Configure Alerts</button>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="right-panel">
+            <div class="section-title">🎯 Priority Zones</div>
+            
+            <div class="damage-item" style="border-left: 3px solid #ff4e50;">
+                <h4>Zone A: Chamoli District</h4>
+                <div class="damage-detail">⚠️ Severity: CRITICAL</div>
+                <div class="damage-detail">🏘️ 45 settlements affected</div>
+                <div class="damage-detail">🌾 218 ha cropland inundated</div>
+                <div class="damage-detail">🛤️ NH-7 blocked at 2 points</div>
+            </div>
+
+            <div class="damage-item" style="border-left: 3px solid #f9d423;">
+                <h4>Zone B: Tehri Garhwal</h4>
+                <div class="damage-detail">⚠️ Severity: HIGH</div>
+                <div class="damage-detail">🏘️ 28 settlements affected</div>
+                <div class="damage-detail">🌾 106 ha cropland inundated</div>
+                <div class="damage-detail">🛤️ 4.2 km roads disrupted</div>
+            </div>
+
+            <div class="damage-item" style="border-left: 3px solid #00c6ff;">
+                <h4>Zone C: Rudraprayag</h4>
+                <div class="damage-detail">⚠️ Severity: MODERATE</div>
+                <div class="damage-detail">🏘️ 12 settlements affected</div>
+                <div class="damage-detail">🌾 52 ha cropland inundated</div>
+                <div class="damage-detail">🌉 1 bridge submerged</div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📈 Land Use Impact</div>
+                <canvas id="damageChart" height="180"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">⏱️ Response Timeline</div>
+                <canvas id="timelineChart" height="120"></canvas>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff4e50;"></div>
+                    <span>Critical Flood</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f9d423;"></div>
+                    <span>High Risk</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00c6ff;"></div>
+                    <span>Moderate</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0072ff;"></div>
+                    <span>Low Risk</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize map with proper settings
+            const map = L.map('map', {
+                center: [30.0668, 79.0193],
+                zoom: 9,
+                zoomControl: true,
+                attributionControl: true
+            });
+
+            // Add tile layer with working URL
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Flood zones with gradient colors
+            const floodZones = [
+                {
+                    coords: [[30.4, 79.0], [30.5, 79.1], [30.45, 79.2], [30.35, 79.15]],
+                    name: "Zone A: Chamoli",
+                    severity: "CRITICAL",
+                    color: "#ff4e50"
+                },
+                {
+                    coords: [[30.25, 78.8], [30.3, 78.9], [30.25, 79.0], [30.2, 78.9]],
+                    name: "Zone B: Tehri",
+                    severity: "HIGH",
+                    color: "#f9d423"
+                },
+                {
+                    coords: [[30.15, 79.05], [30.2, 79.15], [30.15, 79.2], [30.1, 79.1]],
+                    name: "Zone C: Rudraprayag",
+                    severity: "MODERATE",
+                    color: "#00c6ff"
+                }
+            ];
+
+            floodZones.forEach(zone => {
+                const polygon = L.polygon(zone.coords, {
+                    color: zone.color,
+                    fillColor: zone.color,
+                    fillOpacity: 0.4,
+                    weight: 2
+                }).addTo(map);
+
+                polygon.bindPopup(`
+                    <div style="font-family: 'Segoe UI', sans-serif; padding: 5px;">
+                        <b style="color: #333;">${zone.name}</b><br>
+                        <span style="color: ${zone.color}; font-weight: bold;">Severity: ${zone.severity}</span>
+                    </div>
+                `);
+            });
+
+            // Infrastructure markers
+            const bridges = [
+                [30.42, 79.05, "Bridge 1 - CRITICAL", "#ff4e50"],
+                [30.28, 78.88, "Bridge 2 - CRITICAL", "#ff4e50"],
+                [30.18, 79.12, "Bridge 3 - Accessible", "#00c6ff"]
+            ];
+
+            bridges.forEach(b => {
+                L.circleMarker([b[0], b[1]], {
+                    radius: 8,
+                    fillColor: b[3],
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).bindPopup(`
+                    <div style="font-family: 'Segoe UI', sans-serif; padding: 5px;">
+                        <b style="color: #333;">${b[2]}</b>
+                    </div>
+                `).addTo(map);
+            });
+
+            // Charts configuration
+            Chart.defaults.color = '#00c6ff';
+            Chart.defaults.borderColor = 'rgba(0, 198, 255, 0.2)';
+
+            // Trend Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                    datasets: [{
+                        label: 'Flooded Area (km²)',
+                        data: [245, 389, 512, 634, 721, 798, 847],
+                        borderColor: '#00c6ff',
+                        backgroundColor: 'rgba(0, 198, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0, 198, 255, 0.1)' },
+                            ticks: { color: '#00c6ff' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(0, 198, 255, 0.1)' },
+                            ticks: { color: '#00c6ff' }
+                        }
+                    }
+                }
+            });
+
+            // Severity Chart
+            const severityCtx = document.getElementById('severityChart').getContext('2d');
+            new Chart(severityCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Critical', 'High', 'Moderate', 'Low'],
+                    datasets: [{
+                        label: 'Zones',
+                        data: [3, 5, 8, 4],
+                        backgroundColor: ['#ff4e50', '#f9d423', '#00c6ff', '#0072ff'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0, 198, 255, 0.1)' },
+                            ticks: { color: '#00c6ff' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#00c6ff' }
+                        }
+                    }
+                }
+            });
+
+            // Damage Chart
+            const damageCtx = document.getElementById('damageChart').getContext('2d');
+            new Chart(damageCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Agricultural', 'Residential', 'Roads', 'Forest', 'Barren'],
+                    datasets: [{
+                        data: [324, 156, 89, 198, 80],
+                        backgroundColor: ['#ff4e50', '#f9d423', '#00c6ff', '#0072ff', 'rgba(0, 114, 255, 0.3)'],
+                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#00c6ff',
+                                font: { size: 10 },
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Timeline Chart
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: ['0h', '6h', '12h', '18h', '24h'],
+                    datasets: [{
+                        label: 'Response Teams',
+                        data: [2, 5, 12, 18, 23],
+                        borderColor: '#f9d423',
+                        backgroundColor: 'rgba(249, 212, 35, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(249, 212, 35, 0.1)' },
+                            ticks: { color: '#f9d423' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(249, 212, 35, 0.1)' },
+                            ticks: { color: '#f9d423' }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
